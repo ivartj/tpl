@@ -1,0 +1,112 @@
+tpl template system (unfinished)
+===================
+
+tpl is a tool for composing simple HTML documents. The following
+are notes on how I intend it to work.
+
+==== build.sh
+#!/bin/bash
+cd en
+for i in $(find . -name '*.bb'); do
+	tpl -d ../dest/en -I ../tpl/ -D doc-path="$i" "$i"
+done
+
+cd ../no
+for i in $(find . -name '*.bb'); do
+	tpl -d ../dest/no -I ../tpl/no/ -I ../tpl/ -D doc-path="$i" "$i"
+done
+
+==== tpl/body.html.tpl
+-outputs: html
+title: Untitled
+lang: en
+lang-other: no
+
+<html lang="<[lang]>">
+	<head>
+		<meta charset="utf-8">
+		<title><[title|html-escape]></title>
+	</head>
+	<body>
+		<a href="/<[lang-other]>/<[doc-path]>"><[lang-other]></a>
+		<h1><[title|html-escape]></h1>
+		<[...]>
+	</body>
+</html>
+
+==== tpl/no/body.html.tpl
+-template: body.html
+title: Ingen tittel
+lang: no
+lang-other: en
+
+<[...]>
+
+==== tpl/bb.tpl
+-template: body.html
+
+<[...|bbcode]>
+
+==== en/hello.bb
+title: Hello
+
+[b]Hello![/b]
+
+==== no/hello.bb
+title: Hallo
+
+[b]Hallo![/b]
+
+==== dest/en/hello.html
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Hello</title>
+	</head>
+	<body>
+		<a href="/no/hello.html>">no</a>
+		<h1>Hello</h1>
+		<strong>Hello!</strong><br />
+	</body>
+</html>
+
+==== dest/no/hello.html
+<html lang="no">
+	<head>
+		<meta charset="utf-8">
+		<title>Hallo</title>
+	</head>
+	<body>
+		<a href="/en/hello.html>">en</a>
+		<h1>Hallo</h1>
+		<strong>Hallo!</strong><br />
+	</body>
+</html>
+
+====
+
+If a template refers to a template for its own extension, tpl will
+search only later search directories.
+
+start			-> no/hello.bb
+
+no/hello.bb		-> tpl/bb.tpl
+tpl/bb.tpl
+ -template: body.html	-> tpl/no/body.html.tpl
+tpl/no/body.html.tpl
+ - template body.html	-> tpl/body.html
+tpl/body.html
+
+
+title: Hallo		-> title: Hallo
+-
+title: Ingen tittel
+lang: no		-> lang: no
+lang-other: en		-> lang-other: en
+-
+title: Untitled
+lang: en
+lang-other: no
+
+merge template
+

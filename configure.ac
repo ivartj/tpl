@@ -1,0 +1,11 @@
+AC_INIT([tpl], [0.01], [ivar.jarlsby@gmail.com])
+AM_INIT_AUTOMAKE([-Wall -Werror foreign])
+
+AC_PROG_CC
+AM_PROG_CC_C_O
+
+AC_CONFIG_FILES([
+	Makefile
+	html-escape/Makefile
+])
+AC_OUTPUT
