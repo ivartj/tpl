@@ -26,3 +26,11 @@ void *arrayget(array *a, int idx)
 {
 	return a->els[idx];
 }
+
+void arrayclear(array *a)
+{
+	a->cap = 0;
+	a->len = 0;
+	if(a->els != NULL)
+		free(a->els);
+}

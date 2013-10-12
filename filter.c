@@ -12,7 +12,7 @@ struct _buffer {
 
 static size_t bread(void *str, size_t size, size_t nitems, buffer *buf);
 
-size_t filter_stream(char *cmd, filter_iofunc readfn, void *in, filter_iofunc writefn, void *out)
+size_t filter_stream(const char *cmd, filter_iofunc readfn, void *in, filter_iofunc writefn, void *out)
 {
 	FILE *pout, *pin;
 	int wr[2];
@@ -56,7 +56,7 @@ size_t filter_stream(char *cmd, filter_iofunc readfn, void *in, filter_iofunc wr
 	return n;
 }
 
-size_t filter_buffer(char *cmd, char *str, size_t len, filter_iofunc writefn, void *out)
+size_t filter_buffer(const char *cmd, char *str, size_t len, filter_iofunc writefn, void *out)
 {
 	buffer buf = { 0 };
 

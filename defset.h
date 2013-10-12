@@ -13,11 +13,14 @@ struct _defset {
 struct _def {
 	char *name;
 	char *value;
+	size_t namelen;
+	size_t valuelen;
 };
 
-void defset_set(defset *set, char *name, char *value);
-char *defset_get(defset *set, char *name);
-char *defset_getn(defset *set, char *name, size_t namelen);
-void defset_merge(defset *a, defset *b);
+void defset_set(defset *set, const char *name, const char *value);
+void defset_set_len(defset *set, const char *name, size_t namelen, const char *value, size_t valuelen);
+char *defset_get(defset *set, const char *name, size_t namelen);
+void defset_transfer(defset *src, defset *dest);
+void defset_clear(defset *set);
 
 #endif

@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <errno.h>
 #include "parser.h"
-#include "tpldoc.h"
+#include "msg.h"
 
 typedef struct _ctx ctx;
 
@@ -20,7 +21,6 @@ static void astdefset_add(astdefset *defset, astdef *def);
 static void astbody_add(astbody *body, astelem *el);
 static void astbody_text(astbody *body, size_t off, size_t len);
 
-static astdoc *parsedoc(ctx *x);
 static astdefset *parsedefset(ctx *x);
 static astdef *parsedef(ctx *x);
 static astbody *parsebody(ctx *x);
@@ -35,45 +35,6 @@ static size_t parsevalue(ctx *x, astdef *def);
 static size_t parseellipsis(ctx *x, size_t *off, size_t *len);
 
 static size_t xread(void *buf, size_t size, size_t nitems, ctx *x);
-
-tpldoc *tpldoc_parse(tpl *t, const char *tfile)
-{
-	ctx x = { 0 };
-	FILE *in;
-	astdoc *ast;
-	tpldoc *doc;
-
-	in = fopen(tfile, "r");
-	if(in == NULL)
-		return NULL;
-
-	x.read = parser_fread;
-	x.in = in;
-
-	ast = parsedoc(&x);
-	doc = calloc(1, sizeof(tpldoc));
-	doc->t = t;
-	doc->ast = ast;
-
-	return doc;
-}
-
-tpldoc *tpldoc_parse_stream(tpl *t, size_t (*readcb)(void *, size_t, size_t, void *), void *in)
-{
-	ctx x = { 0 };
-	astdoc *ast;
-	tpldoc *doc;
-
-	x.read = readcb;
-	x.in = in;
-
-	ast = parsedoc(&x);
-	doc = calloc(1, sizeof(tpldoc));
-	doc->ast = ast;
-	doc->t = t;
-
-	return doc;
-}
 
 void xsrc(ctx *x, char *src, size_t len)
 {
@@ -137,19 +98,23 @@ int xgetc(ctx *x)
 	return c;
 }
 
-astdoc *parsedoc(ctx *x)
+astdoc *parsedoc(tpl_readfunc read, void *in)
 {
 	astdoc *doc;
 	size_t off;
+	ctx x;
+
+	memset(&x, 0, sizeof(x));
 
 	doc = calloc(1, sizeof(astdoc));
-	off = x->off;
+	x.read = read;
+	x.in = in;
 
-	doc->defset = parsedefset(x);
-	doc->body = parsebody(x);
+	doc->defset = parsedefset(&x);
+	doc->body = parsebody(&x);
 
-	doc->src = x->src;
-	doc->srclen = x->len;
+	doc->src = x.src;
+	doc->srclen = x.len;
 
 	return doc;
 }

@@ -6,10 +6,10 @@
 typedef struct _ctx ctx;
 
 struct _ctx {
-	writefn write;
+	tpl_writefunc write;
 	void *out;
-	tpldoc *tdoc;
-	tpldoc *doc;
+	tpl_doc *tdoc;
+	tpl_doc *doc;
 	char *tsrc;
 	char *src;
 };
@@ -39,20 +39,19 @@ int xprintf(ctx *x, const char *fmt, ...)
 	return len;
 }
 
-size_t tpldoc_process(tpldoc *tdoc, const char *docpath, writefn write, void *out)
+size_t tpl_doc_process(tpl_doc *tdoc, void *in, void *out)
 {
 	int i;
 	size_t n;
 	ctx x = { 0 };
-	FILE *in;
-	tpldoc *doc;
+	tpl_doc *doc;
 	astbody *body;
 
-	doc = tpldoc_parse(tdoc->t, docpath);
+	doc = tpl_doc_parse_stream(tdoc->t, tpl_ctx_get_readfunc(tdoc->t), in);
 	if(doc == NULL)
 		return 0;
 
-	x.write = write;
+	x.write = tpl_ctx_get_writefunc(tdoc->t);
 	x.out = out;
 	x.tdoc = tdoc;
 	x.doc = doc;
@@ -116,7 +115,7 @@ int xgetdef(ctx *x, char *name, size_t namelen, char **value, size_t *valuelen)
 	astdefset *defset;
 	astdef *def;
 
-	if((*value = tpl_getdef(x->doc->t, name, namelen)) != NULL) {
+	if((*value = tpl_ctx_get_definition(x->doc->t, name, namelen)) != NULL) {
 		*valuelen = strlen(*value);
 		return 1;
 	}

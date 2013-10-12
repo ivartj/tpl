@@ -3,16 +3,19 @@
 #include <getopt.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/param.h>
 #include "tpl.h"
 
+tpl_ctx *ctx = NULL;
+char *outpath = NULL;
+char *destdir = NULL;
+char *srcdir = NULL;
 char **inpaths = NULL;
-char *destdir = "";
 int inpathsnum = 0;
-tpl *gctx = NULL;
 
 void createcontext(void)
 {
-	gctx = tpl_create();
+	ctx = tpl_ctx_create();
 }
 
 void parsedef(char *def)
@@ -40,7 +43,7 @@ void parsedef(char *def)
 
 	value = i;
 
-	tpl_setdef(gctx, name, value);
+	tpl_ctx_set_definition(ctx, name, value);
 }
 
 void usage(FILE *out)
@@ -57,20 +60,18 @@ void parseargs(int argc, char *argv[])
 		{ "tpl-dir", required_argument, NULL, 'T' },
 		{ "define", required_argument, NULL, 'D' },
 		{ "dest-dir", required_argument, NULL, 'd' },
+		{ "src-dir", required_argument, NULL, 's' },
+		{ "output-path", required_argument, NULL, 'o' },
 		{ 0, 0, 0, 0 },
 	};
 
-	while((c = getopt_long(argc, argv, "hD:T:d:", longopts, NULL)) != -1)
+	while((c = getopt_long(argc, argv, "hD:T:d:o:s:", longopts, NULL)) != -1)
 	switch(c) {
 	case 'h':
 		usage(stdout);
 		exit(EXIT_SUCCESS);
 	case 'T':
-		err = tpl_addpath(gctx, optarg);
-		if(err) {
-			fprintf(stderr, "tpl: %s.\n", tpl_errmsg(gctx));
-			exit(EXIT_FAILURE);
-		}
+		tpl_ctx_add_searchpath(ctx, optarg);
 		break;
 	case 'D':
 		parsedef(optarg);
@@ -78,8 +79,20 @@ void parseargs(int argc, char *argv[])
 	case 'd':
 		destdir = optarg;
 		break;
+	case 'o':
+		outpath = optarg;
+		break;
+	case 's':
+		srcdir = optarg;
+		break;
 	case ':':
 	case '?':
+		usage(stderr);
+		exit(EXIT_FAILURE);
+	}
+
+	if(destdir != NULL && outpath != NULL) {
+		fprintf(stderr, "ERROR: options -d and -o are mutually exclusive.\n");
 		usage(stderr);
 		exit(EXIT_FAILURE);
 	}
@@ -90,6 +103,11 @@ void parseargs(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 		break;
 	default:
+		if(outpath != NULL && argc - optind > 1) {
+			fprintf(stderr, "ERROR: Can't have single output file for multiple input files.\n");
+			usage(stderr);
+			exit(EXIT_FAILURE);
+		}
 		inpaths = &(argv[optind]);
 		inpathsnum = argc - optind;
 		break;
@@ -100,11 +118,36 @@ void processdocument(void)
 {
 	int i;
 	int err;
+	FILE *in = NULL;
+	FILE *out = NULL;
+	char opath[MAXPATHLEN];
 
 	for(i = 0; i < inpathsnum; i++) {
-		err = tpl_process(gctx, inpaths[i]);
-		if(err)
-			fprintf(stderr, "tpl: %s.\n", tpl_errmsg(gctx));
+		if(outpath == NULL) {
+			tpl_ctx_get_outpath(ctx, inpaths[i], opath);
+			outpath = opath;
+		}
+
+		in = fopen(inpaths[i], "r");
+		if(in == NULL) {
+			fprintf(stderr, "Failed to open file '%s' for reading: %s.\n", inpaths[i], strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+
+		out = fopen(outpath, "w");
+		if(out == NULL) {
+			fprintf(stderr, "Failed to open file '%s' for writing: %s.\n", outpath, strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+
+		err = tpl_ctx_process(ctx, inpaths[i], in, out);
+		if(err) {
+			fprintf(stderr, "tpl: %s.\n", tpl_ctx_error(ctx));
+			exit(EXIT_FAILURE);
+		}
+
+		fclose(in);
+		fclose(out);
 	}
 }
 

@@ -1,19 +1,19 @@
-#include "merge.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include "tpl_doc.h"
 
 typedef struct _ctx ctx;
 
 struct _ctx {
 	astdoc *a, *b;
-	tpldoc *m;
+	tpl_doc *m;
 	unsigned char *src;
 	size_t len;
 	size_t cap;
 	size_t off;
-	tpl *t;
+	tpl_ctx *t;
 };
 
 static int xprintf(ctx *x, const char *fmt, ...);
@@ -87,7 +87,8 @@ int xprintf(ctx *x, const char *fmt, ...)
 	return len;
 }
 
-tpldoc *tpldoc_merge(tpldoc *a, tpldoc *b)
+/* a is the template for b */
+tpl_doc *tpl_doc_merge(tpl_doc *a, tpl_doc *b)
 {
 	ctx x = { 0 };
 
@@ -227,5 +228,5 @@ size_t printbelem(ctx *x, astelem *el)
 
 void parsemerge(ctx *x)
 {
-	x->m = tpldoc_parse_stream(x->t, (readfn)xread, x);
+	x->m = tpl_doc_parse_stream(x->t, (readfn)xread, x);
 }

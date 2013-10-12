@@ -1,8 +1,3 @@
-#include "tpl.h"
-#include "array.h"
-#include "tpldoc.h"
-#include "defset.h"
-#include "print.h"
 #include <sys/stat.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -10,209 +5,210 @@
 #include <string.h>
 #include <unistd.h>
 
-struct _tpl {
-	array spaths;
+#include "tpl.h"
+#include "array.h"
+#include "tpl_doc.h"
+#include "defset.h"
+#include "print.h"
+#include "msg.h"
+
+#define ERRMSGLEN 256
+
+struct _tpl_ctx {
+	array searchpaths;
 	defset set;
-	char *errmsg;
+	char errmsg[ERRMSGLEN];
+	tpl_readfunc read;
+	tpl_writefunc write;
 };
 
-static void seterrmsg(tpl *t, const char *fmt, ...);
-static void *datacopy(void *data, size_t len);
 static char *findtpl(char *ext, char **spaths, int *npaths);
+static const char *getext(const char *path);
 
-tpl *tpl_create(void)
+tpl_ctx *tpl_ctx_create(void)
 {
-	tpl *t;
+	tpl_ctx *t;
 
-	t = calloc(1, sizeof(tpl));
+	t = calloc(1, sizeof(tpl_ctx));
+	t->read = (tpl_readfunc)fread;
+	t->write = (tpl_writefunc)fwrite;
 
 	return t;
 }
 
-int tpl_addpath(tpl *t, char *path)
+void tpl_ctx_add_searchpath(tpl_ctx *t, const char *path)
 {
-	struct stat st;
-	int err;
-
-	err = stat(path, &st);
-	if(err) {
-		seterrmsg(t, "Failed to stat template search path '%s', '%s'", path, strerror(errno));
-		return 1;
-	}
-
-	if((st.st_mode & S_IFDIR) == 0) {
-		seterrmsg(t, "Template search path '%s' is not a directory", path);
-		return 1;
-	}
-
-	if(access(path, R_OK | W_OK) == -1) {
-		seterrmsg(t, "Insufficient read access on template search path '%s'", path);
-		return 1;
-	}
-
-	arrayadd(&(t->spaths), path);
-
-	return 0;
+	arrayadd(&(t->searchpaths), strdup(path));
 }
 
-void tpl_setdef(tpl *t, char *name, char *value)
+void tpl_ctx_set_definition(tpl_ctx *t, const char *name, const char *value)
 {
 	defset_set(&(t->set), name, value);
 }
 
-char *tpl_getdef(tpl *t, char *name, size_t namelen)
+char *tpl_ctx_get_definition(tpl_ctx *t, const char *name, size_t namelen)
 {
-
-	char *val;
-	char *str;
-
-	str = malloc(namelen);
-	str[namelen] = '\0';
-	memcpy(str, name, namelen);
-	val = defset_get(&(t->set), str);
-	free(str);
-
-	return val;
+	return defset_get(&(t->set), name, namelen);
 }
 
-char *tpl_errmsg(tpl *t)
+char *tpl_ctx_error(tpl_ctx *t)
 {
 	return t->errmsg;
 }
 
-void seterrmsg(tpl *t, const char *fmt, ...)
+tpl_writefunc tpl_ctx_get_writefunc(tpl_ctx *ctx)
 {
-	va_list ap;
-
-	va_start(ap, fmt);
-
-	free(t->errmsg);
-	vasprintf(&(t->errmsg), fmt, ap);
-
-	va_end(ap);
+	return ctx->write;
 }
 
-void *datacopy(void *data, size_t len)
+void tpl_ctx_set_writefunc(tpl_ctx *ctx, tpl_writefunc write)
 {
-	void *copy;
-
-	copy = malloc(len);
-	memcpy(copy, data, len);
-
-	return copy;
+	ctx->write = write;
 }
 
-char *findtpl(char *ext, char **spaths, int *npaths)
+tpl_readfunc tpl_ctx_get_readfunc(tpl_ctx *ctx)
+{
+	return ctx->read;
+}
+
+void tpl_ctx_set_readfunc(tpl_ctx *ctx, tpl_readfunc read)
+{
+	ctx->read = read;
+}
+
+void tpl_ctx_get_outpath(tpl_ctx *ctx, const char *inpath, char outpath[MAXPATHLEN])
+{
+	const char *ext;
+	char tpath[MAXPATHLEN];
+	int err;
+
+	ext = getext(inpath);
+	if(ext == NULL) {
+		strncpy(outpath, inpath, MAXPATHLEN);
+		return;
+	}
+
+	err = get_tpl_path(ctx, ext, tpath, NULL);
+	if(err) {
+		strncpy(outpath, inpath, MAXPATHLEN);
+		return;
+	}
+
+	// TODO
+}
+
+int get_tpl_path(tpl_ctx *ctx, const char *ext, char path[MAXPATHLEN], int *offp)
 {
 	int i;
 	char *spath;
-	char *path = NULL;
 
-	for(i = 0; i < *npaths; i++) {
-		spath = spaths[i];
-		if(path != NULL)
-			free(path);
-		asprintf(&path, "%s/%s.tpl", spath, ext);
-		if(access(path, R_OK | W_OK) != -1)
+	if(offp == NULL)
+		i = 0;
+	else
+		i = *offp;
+
+	for(; i < ctx->searchpaths.len; i++) {
+		spath = ctx->searchpaths.els[i];
+		snprintf(path, MAXPATHLEN, "%s/%s.tpl", spath, ext);
+		if(access(path, R_OK) != -1)
 			break;
 	}
 
-	if(i == *npaths) {
-		if(path != NULL)
-			free(path);
-		return NULL;
-	}
-
-	*npaths -= i + 1;
-
-	return path;
-}
-
-char *getext(char *docpath)
-{
-	while(*docpath != '.' && *docpath != '\0')
-		docpath++;
-	if(*docpath == '\0')
-		return NULL;
-
-	return docpath + 1;
-}
-
-tpldoc *tpl_get(tpl *t, char *docpath)
-{
-	char *ext;
-	char **spaths;
-	int npaths;
-	char *tpath;
-	tpldoc *tdoc = NULL;
-	tpldoc *ndoc = NULL;
-	tpldoc *mdoc = NULL;
-	char *next = NULL;
-
-	ext = getext(docpath);
-
-	spaths = (char **)(t->spaths.els);
-	npaths = t->spaths.len;
-
-	tpath = findtpl(ext, spaths, &npaths);
-	if(tpath == NULL)
-		return 0;
-
-	tdoc = tpldoc_parse(t, tpath);
-	free(tpath);
-	tpath = NULL;
-
-	while((next = tpldoc_get(tdoc, "-template")) != NULL) {
-		if(strcmp(next, ext) == 0)
-			tpath = findtpl(next, &(spaths[t->spaths.len - npaths]), &npaths);
-		else {
-			npaths = t->spaths.len;
-			tpath = findtpl(next, spaths, &npaths);
-		}
-
-
-		if(tpath == NULL)
-			goto abort;
-		ext = next; // TODO: memory leak
-
-		ndoc = tpldoc_parse(t, tpath);
-		free(tpath);
-		tpath = NULL;
-
-		mdoc = tpldoc_merge(ndoc, tdoc);
-		tpldoc_destroy(tdoc);
-		tpldoc_destroy(ndoc);
-		tdoc = mdoc;
-		mdoc = NULL;
-		ndoc = NULL;
-	}
-
-	return tdoc;
-abort:
-	if(tdoc)
-		tpldoc_destroy(tdoc);
-	if(ndoc)
-		tpldoc_destroy(ndoc);
-	if(tpath)
-		free(tpath);
-	if(next)
-		free(next);
-}
-
-int tpl_process(tpl *t, char *docpath)
-{
-	tpldoc *tdoc;
-	size_t len;
-	char *destpath;
-	FILE *out;
-
-	tdoc = tpl_get(t, docpath);
-	if(tdoc == NULL)
+	if(i >= ctx->searchpaths.len)
 		return -1;
 
-	len = tpldoc_process(tdoc, docpath, (writefn)fwrite, stdout);
-	if(len == 0)
-		return -1;
+	if(offp != NULL)
+		*offp = i + 1;
 
 	return 0;
+}
+
+const char *getext(const char *path)
+{
+	while(*path != '.' && *path != '\0')
+		path++;
+	if(*path == '\0')
+		return NULL;
+
+	return path + 1;
+}
+
+tpl_doc *tpl_ctx_get_tpl_doc(tpl_ctx *t, const char *inpath)
+{
+	char tpath[MAXPATHLEN] = { 0 };
+	int err;
+	tpl_doc *tdoc = NULL;
+	tpl_doc *ndoc;
+	tpl_doc *mdoc;
+	const char *ext = NULL;
+	char pext[MAXPATHLEN] = { 0 };
+	const char *next = NULL;
+	int off = 0;
+
+	ext = getext(inpath);
+	if(ext == NULL) {
+		seterrmsg(t, "File path has no extensions");
+		return NULL;
+	}
+
+	do {
+		if(next != NULL) {
+			if(strcmp(next, pext) != 0)
+				off = 0;
+			ext = next;
+		}
+
+		err = get_tpl_path(t, ext, tpath, &off);
+		if(err) {
+			if(tdoc != NULL)
+				return tdoc;
+			seterrmsg(t, "Did not find template for file extension '%s'", ext);
+			return NULL;
+		}
+
+		ndoc = tpl_doc_parse(t, tpath);
+		if(ndoc == NULL) {
+			seterrmsg(t, "Failed to parse template file '%s': %s", tpath, tpl_ctx_error(t));
+			return NULL;
+		}
+
+		if(tdoc == NULL)
+			tdoc = ndoc;
+		else {
+			mdoc = tpl_doc_merge(ndoc, tdoc);
+			strncpy(pext, ext, sizeof(pext));
+			tpl_doc_destroy(tdoc);
+			tpl_doc_destroy(ndoc);
+			tdoc = mdoc;
+		}
+
+	} while((next = tpl_doc_get_definition(tdoc, "-template")) != NULL);
+
+	return tdoc;
+}
+
+int tpl_ctx_process(tpl_ctx *ctx, const char *inpath, void *in, void *out)
+{
+	tpl_doc *tdoc;
+
+	tdoc = tpl_ctx_get_tpl_doc(ctx, inpath);
+	if(tdoc == NULL) {
+		seterrmsg(ctx, "Failed to gather template for file '%s': %s", inpath, tpl_ctx_error(ctx));
+		return -1;
+	}
+
+	tpl_doc_process(tdoc, in, out);
+
+	return 0;
+}
+
+void seterrmsg(tpl_ctx *t, const char *fmt, ...)
+{
+	va_list ap;
+	char tmp[ERRMSGLEN];
+
+	va_start(ap, fmt);
+	vsnprintf(tmp, ERRMSGLEN, fmt, ap);
+	memcpy(t->errmsg, tmp, ERRMSGLEN);
+	va_end(ap);
 }

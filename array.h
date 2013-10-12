@@ -14,6 +14,7 @@ struct _array {
 array *makearray(void);
 void arrayadd(array *a, void *el);
 void *arrayget(array *a, int idx);
+void arrayclear(array *a);
 
 
 #endif
