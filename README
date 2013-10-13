@@ -83,7 +83,7 @@ title: Hallo
 	</body>
 </html>
 
-====
+==== Template merging
 
 If a template refers to a template for its own extension, tpl will
 search only later search directories.
@@ -110,3 +110,8 @@ lang-other: no
 
 merge template
 
+==== Programmatic features
+
+While fields in a template are written as <[field]>, control structures
+may be written like <{if Approved}> or <{for articles/*/summary.*}> followed
+by <{end}>.
