@@ -9,7 +9,6 @@
 tpl_ctx *ctx = NULL;
 char *outpath = NULL;
 char *destdir = NULL;
-char *srcdir = NULL;
 char **inpaths = NULL;
 int inpathsnum = 0;
 
@@ -48,7 +47,14 @@ void parsedef(char *def)
 
 void usage(FILE *out)
 {
-	fprintf(out, "usage: tpl [ -T<template-dir> ... ] [ -D<name=value> ... ] <input-file> ...\n");
+	fprintf(out,
+		"usage: tpl [ -d <destination-directory> ]\n"
+		"           [ -o <output-path> ]\n"
+		"           [ -T<template-directory> ... ]\n"
+		"           [ -D<name=value> ... ]\n"
+		"           <input-file> ...\n"
+		"\n"
+		"The -o and -d options are mutually exclusive.\n");
 }
 
 void parseargs(int argc, char *argv[])
@@ -57,15 +63,14 @@ void parseargs(int argc, char *argv[])
 	int err;
 	static struct option longopts[] = {
 		{ "help", no_argument, NULL, 'h' },
-		{ "tpl-dir", required_argument, NULL, 'T' },
+		{ "template-directory", required_argument, NULL, 'T' },
 		{ "define", required_argument, NULL, 'D' },
-		{ "dest-dir", required_argument, NULL, 'd' },
-		{ "src-dir", required_argument, NULL, 's' },
+		{ "destination-directory", required_argument, NULL, 'd' },
 		{ "output-path", required_argument, NULL, 'o' },
 		{ 0, 0, 0, 0 },
 	};
 
-	while((c = getopt_long(argc, argv, "hD:T:d:o:s:", longopts, NULL)) != -1)
+	while((c = getopt_long(argc, argv, "hD:T:d:o:", longopts, NULL)) != -1)
 	switch(c) {
 	case 'h':
 		usage(stdout);
@@ -82,9 +87,6 @@ void parseargs(int argc, char *argv[])
 	case 'o':
 		outpath = optarg;
 		break;
-	case 's':
-		srcdir = optarg;
-		break;
 	case ':':
 	case '?':
 		usage(stderr);
@@ -97,19 +99,23 @@ void parseargs(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
+	if(destdir == NULL && outpath == NULL)
+		destdir = ".";
+
 	switch(argc - optind) {
 	case 0:
 		usage(stderr);
 		exit(EXIT_FAILURE);
 		break;
 	default:
-		if(outpath != NULL && argc - optind > 1) {
-			fprintf(stderr, "ERROR: Can't have single output file for multiple input files.\n");
+		inpaths = &(argv[optind]);
+		inpathsnum = argc - optind;
+		if(outpath != NULL && inpathsnum != 1) {
+			fprintf(stderr, "ERROR: Can't use -o option with multiple input files.\n");
 			usage(stderr);
 			exit(EXIT_FAILURE);
 		}
-		inpaths = &(argv[optind]);
-		inpathsnum = argc - optind;
+
 		break;
 	}
 }
@@ -124,7 +130,11 @@ void processdocument(void)
 
 	for(i = 0; i < inpathsnum; i++) {
 		if(outpath == NULL) {
-			tpl_ctx_get_outpath(ctx, inpaths[i], opath);
+			err = tpl_ctx_get_outpath(ctx, inpaths[i], opath);
+			if(err) {
+				fprintf(stderr, "Failed to decide output path for '%s': %s\n", inpaths[i], tpl_ctx_error(ctx));
+				exit(EXIT_FAILURE);
+			}
 			outpath = opath;
 		}
 

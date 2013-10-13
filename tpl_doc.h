@@ -2,8 +2,8 @@
 #define TPLDOC_H
 
 #include "defset.h"
-#include "parser.h"
 #include "tpl.h"
+#include "parser.h"
 
 typedef struct _tpl_doc tpl_doc;
 

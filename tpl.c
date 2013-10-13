@@ -24,6 +24,7 @@ struct _tpl_ctx {
 
 static char *findtpl(char *ext, char **spaths, int *npaths);
 static const char *getext(const char *path);
+static tpl_doc *tpl_ctx_get_tpl_doc(tpl_ctx *t, const char *inpath);
 
 tpl_ctx *tpl_ctx_create(void)
 {
@@ -76,25 +77,29 @@ void tpl_ctx_set_readfunc(tpl_ctx *ctx, tpl_readfunc read)
 	ctx->read = read;
 }
 
-void tpl_ctx_get_outpath(tpl_ctx *ctx, const char *inpath, char outpath[MAXPATHLEN])
+int tpl_ctx_get_outpath(tpl_ctx *ctx, const char *inpath, char outpath[MAXPATHLEN])
 {
-	const char *ext;
-	char tpath[MAXPATHLEN];
-	int err;
+	tpl_doc *t;
+	char *outext;
+	char *inext;
 
-	ext = getext(inpath);
-	if(ext == NULL) {
-		strncpy(outpath, inpath, MAXPATHLEN);
-		return;
+	t = tpl_ctx_get_tpl_doc(ctx, inpath);
+	if(t == NULL) {
+		seterrmsg(ctx, "Did not find templates for file '%s': %s", inpath, tpl_ctx_error(ctx));
+		return -1;
 	}
 
-	err = get_tpl_path(ctx, ext, tpath, NULL);
-	if(err) {
-		strncpy(outpath, inpath, MAXPATHLEN);
-		return;
+	outext = tpl_doc_get_definition(t, "-output");
+	if(outext == NULL) {
+		seterrmsg(ctx, "Template output file extension not defined for '%s'", inpath);
+		return -1;
 	}
 
-	// TODO
+	strncpy(outpath, inpath, MAXPATHLEN);
+	inext = (char *)getext(outpath);
+	strncpy(inext, outext, MAXPATHLEN - strlen(inpath));
+	
+	return 0;
 }
 
 int get_tpl_path(tpl_ctx *ctx, const char *ext, char path[MAXPATHLEN], int *offp)

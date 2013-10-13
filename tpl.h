@@ -20,9 +20,10 @@ void tpl_ctx_set_definition(tpl_ctx *ctx, const char *name, const char *value);
 char *tpl_ctx_get_definition(tpl_ctx *ctx, const char *name, size_t namelen);
 void tpl_ctx_add_searchpath(tpl_ctx *ctx, const char *path);
 
-void tpl_ctx_get_outpath(tpl_ctx *ctx, const char *inpath, char outpath[MAXPATHLEN]);
 int tpl_ctx_process(tpl_ctx *ctx, const char *inpath, void *in, void *out);
 
 char *tpl_ctx_error(tpl_ctx *ctx);
+
+int tpl_ctx_get_outpath(tpl_ctx *ctx, const char *inpath, char outpath[MAXPATHLEN]);
 
 #endif
