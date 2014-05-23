@@ -22,7 +22,7 @@ tpl_doc *tpl_doc_parse_stream(tpl_ctx *ctx, size_t (*readcb)(void *, size_t, siz
 
 size_t tpl_doc_process(tpl_doc *doc, void *in, void *out);
 
-tpl_doc *tpl_doc_merge(tpl_doc *a, tpl_doc *b);
+#include "merge.h" /* tpl_doc_merge */
 void tpl_doc_destroy(tpl_doc *tdoc);
 
 #endif

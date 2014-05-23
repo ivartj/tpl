@@ -103,7 +103,7 @@ size_t printfield(ctx *x, astfield *el)
 	memcpy(filter, x->tsrc + el->filteroff, el->filterlen);
 	filter[el->filterlen] = '\0';
 
-	n = filter_buffer(filter, value, valuelen, (writefn)xwrite, x);
+	n = filter_buffer(filter, value, valuelen, (tpl_writefunc)xwrite, x);
 
 	free(filter);
 	return n;

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "tpl_doc.h"
+#include "merge.h"
 
 typedef struct _ctx ctx;
 
@@ -16,6 +17,7 @@ struct _ctx {
 	tpl_ctx *t;
 };
 
+static int xputc(ctx *x, int c);
 static int xprintf(ctx *x, const char *fmt, ...);
 static size_t xwrite(void *buf, size_t size, size_t nitems, ctx *x);
 static size_t xread(void *buf, size_t size, size_t nitems, ctx *x);
@@ -228,5 +230,5 @@ size_t printbelem(ctx *x, astelem *el)
 
 void parsemerge(ctx *x)
 {
-	x->m = tpl_doc_parse_stream(x->t, (readfn)xread, x);
+	x->m = tpl_doc_parse_stream(x->t, (tpl_readfunc)xread, x);
 }

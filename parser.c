@@ -10,7 +10,7 @@ typedef struct _ctx ctx;
 
 struct _ctx {
 	void *in;
-	readfn read;
+	tpl_readfunc read;
 	char *src;
 	size_t off;
 	size_t len;

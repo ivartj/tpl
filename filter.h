@@ -2,10 +2,9 @@
 #define FILTER_H
 
 #include <stdio.h>
+#include "tpl.h"
 
-typedef size_t (*filter_iofunc)(void *, size_t, size_t, void *);
-
-size_t filter_stream(const char *cmd, filter_iofunc read, void *in, filter_iofunc write, void *out);
-size_t filter_buffer(const char *cmd, char *str, size_t len, filter_iofunc writefn, void *out);
+size_t filter_stream(const char *cmd, tpl_readfunc read, void *in, tpl_writefunc write, void *out);
+size_t filter_buffer(const char *cmd, char *str, size_t len, tpl_writefunc writefn, void *out);
 
 #endif

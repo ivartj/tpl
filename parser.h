@@ -66,8 +66,6 @@ union _astelem {
 };
 
 static size_t parser_fread(void *buf, size_t size, size_t nitems, void *in);
-typedef size_t (*readfn)(void *, size_t, size_t, void *);
-typedef size_t (*writefn)(void *, size_t, size_t, void *);
 
 astdoc *parsedoc(tpl_readfunc read, void *in);
 void astdefset_destroy(astdefset *defset);
